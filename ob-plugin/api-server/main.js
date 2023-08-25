@@ -18,7 +18,9 @@ class SettingsTab extends PluginSettingTab {
     url = new URL(url)
 
     if (url.protocol !== 'https:') {
-      throw 'URL must be HTTPS'
+      if (url.protocol !== 'http:' && url.hostname !== 'localhost' && url.hostname !== '127.0.0.1') {
+        throw 'URL must be HTTPS'
+      }
     }
 
     if (!url.pathname.endsWith('/')) {
@@ -35,7 +37,7 @@ class SettingsTab extends PluginSettingTab {
 
     const s = new Setting(containerEl)
       .setName('New URL')
-      .setDesc('The new URL to use for API calls, must be HTTPS')
+      .setDesc('Must be HTTPS, unless it\'s localhost')
       .addText(text => text
         .setPlaceholder('https://example.com/')
         .setValue(this.plugin.settings.newUrl)
