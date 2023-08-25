@@ -1,0 +1,10 @@
+{
+	"id": "api-server",
+	"name": "API Server",
+	"version": "1.0.0",
+	"minAppVersion": "0.15.0",
+	"description": "Change API Server",
+	"author": "CzBiX",
+	"authorUrl": "https://obsidian.md",
+	"isDesktopOnly": false
+}
