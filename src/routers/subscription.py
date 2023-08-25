@@ -2,7 +2,7 @@ from fastapi import APIRouter
 
 router = APIRouter()
 
-@router.post('/subscription/list')
+@router.post('/list')
 def list_subscription():
   return {
     'sync': True,
