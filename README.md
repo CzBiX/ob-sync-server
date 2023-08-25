@@ -1,7 +1,8 @@
 # ob-sync-server
 A reimplemented sync server for Obsidian via reverse engineering.
 
-Some behavior may be different from the official server.
+> [!WARNING]
+> Some behavior may be different from the official server.
 
 ## What works
 - [x] user login
