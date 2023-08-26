@@ -12,13 +12,13 @@ But bugs may exist, use at your own risk.
 ## What works
 - [x] user create, login
 - [x] vault list, create, delete
+- [x] vault share
 - [x] live sync
 - [x] history, restore
 
 ## TODO
 - [ ] database/storage cleanup
 - [ ] API to access vaults/documents
-- [ ] share vault
 - [ ] publish maybe?
 
 ## Usage
