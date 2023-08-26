@@ -1,20 +1,22 @@
-# ob-sync-server
-A reimplemented sync server for Obsidian via reverse engineering.
+# Obsidian Sync Server
+A reimplemented sync server for Obsidian based on reverse engineering.
+Not affiliated with Obsidian.md.
 
 ![Supported Obsidian version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FCzBiX%2Fob-sync-server%2Fmaster%2Fob-plugin%2Fapi-server%2Fmanifest.json&query=minAppVersion&logo=obsidian&label=Obsidian&color=rebeccapurple)
 
-
-> [!WARNING]
-> Some behavior may be different from the official server.
+## Disclaimer
+This implementation is based on the reverse engineering of client, and may not be the same as the official server.
+Most of features are implemented, and should work as expected.
+But bugs may exist, use at your own risk.
 
 ## What works
-- [x] user login
-- [x] vault listing, creation, and deletion
-- [x] document live syncing
-- [x] document history, restore
+- [x] user create, login
+- [x] vault list, create, delete
+- [x] live sync
+- [x] history, restore
 
 ## TODO
-- [ ] database/storage cleaning
+- [ ] database/storage cleanup
 - [ ] API to access vaults/documents
 - [ ] share vault
 - [ ] publish maybe?
@@ -29,15 +31,18 @@ A reimplemented sync server for Obsidian via reverse engineering.
      --name ob-sync-server \
      ghcr.io/czbix/ob-sync-server:master
    ```
-2. Create user
+2. Create a user
    ```bash
-   docker exec -it ob-sync-server python3 -m src.cli create-user {name} {email} {password}
+   docker exec -it ob-sync-server \
+     python3 -m src.cli create-user {name} {email} {password}
    ```
 
-3. Install api-servr plugin
+3. Install api-server plugin
 
     Copy the `ob-plugin/api-server` folder to your vault's `.obsidian/plugins` directory.
 
-    Enable the plugin and set the server URL to `http://localhost:8000`.
+    Enable the plugin and set the server URL to your server, such as `http://localhost:8000/`.
 
 4. Login and enjoy
+
+   Also do the same on your phone if needed.
