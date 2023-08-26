@@ -63,6 +63,3 @@ def create_db_and_tables(engine):
   SQLModel.metadata.create_all(engine)
 
 DB_URL = 'sqlite:///data/data.db'
-
-if __name__ == '__main__':
-  create_db_and_tables(get_engine(DB_URL, echo=True))

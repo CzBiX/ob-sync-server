@@ -31,8 +31,10 @@ But bugs may exist, use at your own risk.
      --name ob-sync-server \
      ghcr.io/czbix/ob-sync-server:master
    ```
-2. Create a user
+2. Create database and user
    ```bash
+   docker exec -it ob-sync-server \
+     python3 -m src.cli create-database
    docker exec -it ob-sync-server \
      python3 -m src.cli create-user {name} {email} {password}
    ```
