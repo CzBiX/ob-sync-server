@@ -201,7 +201,7 @@ class UserVaultState:
     if not check_vault_access(vault_state.db, vault_id, user_id, True):
       raise Exception('Auth failed')
 
-    if secrets.compare_digest(vault.key_hash, keyhash):
+    if not secrets.compare_digest(vault.key_hash, keyhash):
       raise Exception('Invalid password')
     
     logger.debug('vault join, vault_id: %d, device: %s', vault_id, conn.device)

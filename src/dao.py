@@ -17,6 +17,7 @@ def get_vault(
   if include_shared:
     query = query.join(
       model.VaultShare,
+      isouter=True,
     ).where(
       or_(
         model.Vault.owner_id == user_id,
