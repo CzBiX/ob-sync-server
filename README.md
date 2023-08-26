@@ -29,7 +29,7 @@ But bugs may exist, use at your own risk.
      -p 8000:8000 \
      -v /path/to/data:/app/data \
      --name ob-sync-server \
-     ghcr.io/czbix/ob-sync-server:master
+     ghcr.io/czbix/ob-sync-server
    ```
 2. Create database and user
    ```bash
