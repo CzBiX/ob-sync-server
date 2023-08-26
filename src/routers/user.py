@@ -53,6 +53,7 @@ def user_signout(db: DbSession, token: Annotated[str, Body(embed=True)]):
     db.delete(user_token)
     db.commit()
   except HTTPException:
+    # ignore invalid token
     pass
 
   return {}

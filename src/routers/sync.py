@@ -2,6 +2,7 @@ import asyncio
 from dataclasses import dataclass
 import json
 import logging
+import secrets
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from fastapi.responses import PlainTextResponse
@@ -9,6 +10,7 @@ from sqlmodel import Session, col, func, not_, select
 
 from .. import model, storage
 from ..config import settings
+from ..dao import check_vault_access
 from ..depends import DbSession, engine, get_user_token
 from ..utils import datetime_to_ts
 
@@ -196,8 +198,11 @@ class UserVaultState:
       vaultStates[vault_id] = vault_state
     
     vault = vault_state.vault
-    if vault.key_hash != keyhash or vault.owner_id != user_id:
+    if not check_vault_access(vault_state.db, vault_id, user_id, True):
       raise Exception('Auth failed')
+
+    if secrets.compare_digest(vault.key_hash, keyhash):
+      raise Exception('Invalid password')
     
     logger.debug('vault join, vault_id: %d, device: %s', vault_id, conn.device)
     vault_state.conns.append(conn)

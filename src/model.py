@@ -6,7 +6,7 @@ from sqlmodel import Field, Relationship, SQLModel, create_engine
 
 class User(SQLModel, table=True):
   id: Optional[int] = Field(default=None, primary_key=True)
-  email: str = Field(index=True)
+  email: str = Field(unique=True)
   password: str
   salt: str
   name: str
@@ -18,7 +18,12 @@ class UserToken(SQLModel, table=True):
   token: str = Field(index=True)
   created_at: datetime = Field(default_factory=datetime.now)
 
-  user: User = Relationship(sa_relationship_kwargs={'uselist':False})
+  user: User = Relationship()
+
+class VaultShare(SQLModel, table=True):
+  vault_id: int = Field(foreign_key='vault.id', primary_key=True)
+  user_id: int = Field(foreign_key='user.id', primary_key=True)
+  created_at: datetime = Field(default_factory=datetime.now)
 
 class Vault(SQLModel, table=True):
   id: Optional[int] = Field(default=None, primary_key=True)
@@ -30,7 +35,8 @@ class Vault(SQLModel, table=True):
   deleted: bool = Field(default=False)
   created_at: datetime = Field(default_factory=datetime.now)
 
-  owner: User = Relationship(sa_relationship_kwargs={'uselist':False})
+  owner: User = Relationship()
+  shared_users: list[User] = Relationship(link_model=VaultShare)
 
 class DocumentRecord(SQLModel, table=True):
   id: Optional[int] = Field(default=None, primary_key=True)
@@ -46,7 +52,7 @@ class DocumentRecord(SQLModel, table=True):
   mtime: int
   created_at: datetime = Field(default_factory=datetime.now)
 
-  vault: Vault = Relationship(sa_relationship_kwargs={'uselist':False})
+  vault: Vault = Relationship()
 
 def get_engine(db_url: str, echo: bool = False):
   return create_engine(db_url, echo=echo, connect_args={
