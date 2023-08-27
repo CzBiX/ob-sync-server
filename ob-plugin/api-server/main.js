@@ -71,7 +71,7 @@ module.exports = class ApiServerPlugin extends Plugin {
 
     window.ajax = arg => {
       if (arg.url.startsWith(ORIGIN_URL) && this.settings.newUrl) {
-        arg.url = arg.url.replace(ORIGIN_URL, this.ettings.newUrl)
+        arg.url = arg.url.replace(ORIGIN_URL, this.settings.newUrl)
       }
 
       return this.origAjax(arg)
