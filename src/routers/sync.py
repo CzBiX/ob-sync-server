@@ -2,6 +2,7 @@ import asyncio
 from dataclasses import dataclass
 import json
 import logging
+import math
 import secrets
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -62,6 +63,9 @@ if settings.debug:
       'vaults_count': len(vaults),
     }
 
+def size_to_pieces(size: int):
+  return math.ceil(size / CHUNK_SIZE)
+
 def record_to_msg(record: model.DocumentRecord):
   msg = {
     'uid': record.id,
@@ -75,10 +79,19 @@ def record_to_msg(record: model.DocumentRecord):
 
   if not record.folder and not record.deleted:
     msg['size'] = record.size
-    msg['pieces'] = record.pieces
   
   return msg
 
+def record_to_history(record: model.DocumentRecord):
+  return {
+    'uid': record.id,
+    'path': record.path,
+    'folder': record.folder,
+    'device': record.device,
+    'size': record.size,
+    'deleted': record.deleted,
+    'ts': datetime_to_ts(record.created_at),
+  }
 
 class UserVaultState:
   def __init__(self, vault_id: str):
@@ -153,6 +166,8 @@ class UserVaultState:
     records = self.db.exec(query.order_by(
       col(model.DocumentRecord.id).desc()
     )).all()
+
+    # TODO: limit records count
 
     return records
   
@@ -300,8 +315,14 @@ class UserSyncConn:
 
     record = model.DocumentRecord(
       vault_id=self.vault.vault_id,
+      path=msg['path'],
+      hash=msg['hash'],
+      folder=msg['folder'],
+      deleted=msg['deleted'],
+      size=msg.get('size', 0),
       device=self.device,
-      **msg,
+      ctime=msg['ctime'],
+      mtime=msg['mtime'],
     )
 
     await self.vault.push(record)
@@ -310,14 +331,20 @@ class UserSyncConn:
   async def on_pull(self, msg: dict):
     uid = msg['uid']
     record = self.vault.get_record(uid)
-    msg = record_to_msg(record)
+    pieces = size_to_pieces(record.size)
+
+    msg = {
+      'size': record.size,
+      'pieces': pieces,
+      'deleted': record.deleted,
+    }
 
     await self.send(msg)
 
-    if record.pieces:
+    if record.size > 0:
       f = storage.get_file_object(self.vault.vault_id, record.hash)
       try:
-        for _ in range(record.pieces):
+        for _ in range(pieces):
           chunk = f.read(CHUNK_SIZE)
           await self.ws.send_bytes(chunk)
       finally:
@@ -326,17 +353,7 @@ class UserSyncConn:
   async def get_deleted(self):
     deleted = self.vault.get_deleted()
 
-    items = []
-    for record in deleted:
-      items.append({
-        'uid': record.id,
-        'path': record.path,
-        'ts': datetime_to_ts(record.created_at),
-        'folder': record.folder,
-        'device': record.device,
-        'size': record.size,
-        'deleted': record.deleted,
-      })
+    items = [record_to_history(record) for record in deleted]
     
     await self.send({
       'items': items,
@@ -347,17 +364,7 @@ class UserSyncConn:
     last = msg['last']
     records = self.vault.get_history(path, last)
 
-    items = []
-    for record in records:
-      items.append({
-        'uid': record.id,
-        'path': record.path,
-        'ts': datetime_to_ts(record.created_at),
-        'folder': record.folder,
-        'device': record.device,
-        'size': record.size,
-        'deleted': record.deleted,
-      })
+    items = [record_to_history(record) for record in records]
     
     await self.send({
       'items': items,

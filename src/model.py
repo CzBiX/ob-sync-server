@@ -43,11 +43,10 @@ class DocumentRecord(SQLModel, table=True):
   vault_id: int = Field(index=True, foreign_key='vault.id')
   path: str = Field(index=True)
   hash: str = Field(index=True)
-  device: str
   folder: bool
   deleted: bool = Field(default=False)
   size: int = Field(default=0)
-  pieces: int = Field(default=0)
+  device: str
   ctime: int
   mtime: int
   created_at: datetime = Field(default_factory=datetime.now)
