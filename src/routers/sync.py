@@ -161,6 +161,11 @@ class UserVaultState:
       model.DocumentRecord.vault_id == self.vault_id,
     )).one() or 0
 
+    if last == max_id:
+      return max_id, []
+    
+    assert last < max_id
+
     query = select(
       model.DocumentRecord,
       func.max(model.DocumentRecord.id),
