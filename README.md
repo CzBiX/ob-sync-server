@@ -1,13 +1,8 @@
 # Obsidian Sync Server
 A reimplemented sync server for Obsidian based on reverse engineering.
-Not affiliated with Obsidian.md.
+Not affiliated with [Obsidian.md](https://obsidian.md/).
 
 ![Supported Obsidian version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FCzBiX%2Fob-sync-server%2Fmaster%2Fob-plugin%2Fapi-server%2Fmanifest.json&query=minAppVersion&logo=obsidian&label=Obsidian&color=rebeccapurple)
-
-## Disclaimer
-This implementation is based on the reverse engineering of client, and may not be the same as the official server.
-Most of features are implemented, and should work as expected.
-But bugs may exist, use at your own risk.
 
 ## What works
 - [x] user create, login
@@ -48,3 +43,8 @@ But bugs may exist, use at your own risk.
 4. Login and enjoy
 
    Also do the same on your phone if needed.
+
+## Disclaimer
+This implementation is based on the reverse engineering of client, and may not be the same as the official server.
+Most of features are implemented, and should work as expected.
+But bugs may exist, use at your own risk.
