@@ -4,8 +4,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from sqlmodel import select, not_
 
-from .. import model
-from ..dao import get_vault
+from .. import dao, model
 from ..depends import DbSession, UserTokenInfo, get_user_token
 from ..utils import datetime_to_ts, generate_secret, get_keyhash
 
@@ -88,7 +87,7 @@ class DeleteVaultRequest(BaseModel):
 def delete_vault(db: DbSession, req: DeleteVaultRequest):
   user_token = get_user_token(req.token, db)
 
-  vault = get_vault(db, req.vault_uid, user_token.user_id)
+  vault = dao.Vault.get(db, req.vault_uid, user_token.user_id)
   
   if vault:
     vault.deleted = True
@@ -107,7 +106,7 @@ class AccessVaultRequest(BaseModel):
 def access_vault(db: DbSession, req: AccessVaultRequest):
   user_token = get_user_token(req.token, db)
 
-  vault = get_vault(db, req.vault_uid, user_token.user_id, True)
+  vault = dao.Vault.get(db, req.vault_uid, user_token.user_id, True)
 
   if not vault:
     raise HTTPException(404)
@@ -127,7 +126,7 @@ class LsitVaultShareRequest(BaseModel):
 def list_share(db: DbSession, req: LsitVaultShareRequest):
   user_token = get_user_token(req.token, db)
 
-  vault = get_vault(db, req.vault_uid, user_token.user_id)
+  vault = dao.Vault.get(db, req.vault_uid, user_token.user_id)
   if not vault:
     raise HTTPException(403)
 
@@ -159,7 +158,7 @@ def remove_share(db: DbSession, req: RemoveVaultShareRequest):
 
   is_owner = bool(req.share_uid)
   # check if user can access vault
-  vault = get_vault(db, req.vault_uid, user_token.user_id, not is_owner)
+  vault = dao.Vault.get(db, req.vault_uid, user_token.user_id, not is_owner)
   if not vault:
     raise HTTPException(403)
 
@@ -188,7 +187,7 @@ class InviteVaultShareRequest(BaseModel):
 def invite_share(db: DbSession, req: InviteVaultShareRequest):
   user_token = get_user_token(req.token, db)
 
-  vault = get_vault(db, req.vault_uid, user_token.user_id)
+  vault = dao.Vault.get(db, req.vault_uid, user_token.user_id)
   if not vault:
     raise HTTPException(403)
 

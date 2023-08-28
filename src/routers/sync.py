@@ -7,11 +7,10 @@ import secrets
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from fastapi.responses import PlainTextResponse
-from sqlmodel import Session, col, func, not_, select
+from sqlmodel import Session
 
 from .. import dao, model, storage
 from ..config import settings
-from ..dao import check_vault_access
 from ..depends import DbSession, engine, get_user_token
 from ..utils import datetime_to_ts
 
@@ -56,7 +55,7 @@ if settings.debug:
         'size': vault.size,
         'conn_devices': [conn.device for conn in vault.conns],
       }
-      for vault in vaultStates.values()
+      for vault in vault_channels.values()
     ]
     return {
       'vaults': vaults,
@@ -93,7 +92,7 @@ def record_to_history(record: model.DocumentRecord):
     'ts': datetime_to_ts(record.created_at),
   }
 
-class UserVaultState:
+class UserVaultChannel:
   def __init__(self, vault_id: str):
     self.vault_id = vault_id
 
@@ -103,7 +102,7 @@ class UserVaultState:
     self.vault = self._get_vault()
   
   def _get_vault(self):
-    vault = dao.get_vault(self.db, self.vault_id)
+    vault = dao.Vault.get(self.db, self.vault_id)
 
     if not vault:
       raise Exception('Vault not found')
@@ -111,91 +110,27 @@ class UserVaultState:
     return vault
   
   def get_size(self):
-    size = self.db.exec(select(func.sum(model.DocumentRecord.size)).where(
-      model.DocumentRecord.vault_id == self.vault_id,
-    )).one()
-
-    return size or 0
+    return dao.Vault.get_size(self.db, self.vault_id)
   
   def hash_exists(self, hash: str):
-    record = self.db.exec(select(model.DocumentRecord).where(
-      model.DocumentRecord.vault_id == self.vault_id,
-      model.DocumentRecord.hash == hash,
-    )).one_or_none()
-
-    return record is not None
+    return dao.Vault.get_hash_count(self.db, self.vault_id, hash) > 0
   
   def get_record(self, uid: int):
-    record = self.db.exec(select(model.DocumentRecord).where(
-      model.DocumentRecord.vault_id == self.vault_id,
-      model.DocumentRecord.id == uid,
-    )).one()
+    record = dao.DocumentRecord.get(self.db, self.vault_id, uid)
+
+    if not record:
+      raise Exception('Record not found')
 
     return record
   
   def get_deleted(self):
-    record_tuples = self.db.exec(
-      select(
-        model.DocumentRecord,
-        func.max(model.DocumentRecord.id),
-      ).where(
-        model.DocumentRecord.vault_id == self.vault_id,
-      ).group_by(
-        model.DocumentRecord.path,
-      ).having(
-        model.DocumentRecord.deleted,
-      ).order_by(
-        col(model.DocumentRecord.id).desc()
-      )
-    ).all()
-
-    records = [record[0] for record in record_tuples]
-    return records
+    return dao.DocumentRecord.get_deleted(self.db, self.vault_id)
   
   def get_history(self, path: str, last: int):
-    query = select(model.DocumentRecord).where(
-      model.DocumentRecord.vault_id == self.vault_id,
-      model.DocumentRecord.path == path,
-    )
-    if last:
-      query = query.where(model.DocumentRecord.id < last)
-
-    records = self.db.exec(query.order_by(
-      col(model.DocumentRecord.id).desc()
-    )).all()
-
-    # TODO: limit records count
-
-    return records
+    return dao.DocumentRecord.get_history(self.db, self.vault_id, path, last)
   
   def get_updates(self, last: int, initial: bool):
-    max_id = self.db.exec(select(func.max(model.DocumentRecord.id)).where(
-      model.DocumentRecord.vault_id == self.vault_id,
-    )).one() or 0
-
-    if last == max_id:
-      return max_id, []
-    
-    assert last < max_id
-
-    query = select(
-      model.DocumentRecord,
-      func.max(model.DocumentRecord.id),
-    ).where(
-      model.DocumentRecord.vault_id == self.vault_id,
-      model.DocumentRecord.id > last,
-    ).group_by(
-      model.DocumentRecord.path,
-    )
-
-    if initial:
-      query = query.having(not_(model.DocumentRecord.deleted))
-    
-    query = query.order_by(
-      model.DocumentRecord.id
-    )
-    
-    return max_id, map(lambda r: r[0], self.db.exec(query))
+    return dao.DocumentRecord.get_updates(self.db, self.vault_id, last, initial)
   
   async def restore(self, uid: int, device: str):
     old_record = self.get_record(uid)
@@ -209,13 +144,13 @@ class UserVaultState:
     return new_record
   
   def join(conn: 'UserSyncConn', user_id: int, vault_id: int, keyhash: str):
-    vault_state = vaultStates.get(vault_id) 
+    vault_state = vault_channels.get(vault_id) 
     if not vault_state:
-      vault_state = UserVaultState(vault_id)
-      vaultStates[vault_id] = vault_state
+      vault_state = UserVaultChannel(vault_id)
+      vault_channels[vault_id] = vault_state
     
     vault = vault_state.vault
-    if not check_vault_access(vault_state.db, vault_id, user_id, True):
+    if not dao.Vault.check_access(vault_state.db, vault_id, user_id, True):
       raise Exception('Auth failed')
 
     if not secrets.compare_digest(vault.key_hash, keyhash):
@@ -231,7 +166,7 @@ class UserVaultState:
     self.conns.remove(conn)
 
     if len(self.conns) == 0:
-      del vaultStates[self.vault_id]
+      del vault_channels[self.vault_id]
       self.db.close()
   
   async def push(self, record: model.DocumentRecord):
@@ -244,15 +179,20 @@ class UserVaultState:
     for c in self.conns:
       await c.send(msg)
 
-vaultStates: dict[int, UserVaultState] = {}
+vault_channels: dict[int, UserVaultChannel] = {}
 
 @dataclass
 class UserSyncConn:
   ws: WebSocket
   device: str
-  vault: UserVaultState | None = None
+  vault: UserVaultChannel | None = None
+  task: asyncio.Task | None = None
   
   def disconnect(self):
+    if self.task:
+      self.task.cancel()
+      self.task = None
+
     if self.vault:
       self.vault.leave(self)
       self.vault = None
@@ -283,14 +223,14 @@ class UserSyncConn:
     user_token = get_user_token(msg['token'], db)
 
     conn = UserSyncConn(ws, device)
-    vault = UserVaultState.join(
+    vault = UserVaultChannel.join(
       conn, user_token.user_id, msg['id'], msg['keyhash']
     )
     conn.vault = vault
 
     await conn.result()
 
-    asyncio.create_task(conn.send_records(msg['version'], msg['initial']))
+    conn.task = asyncio.create_task(conn.send_records(msg['version'], msg['initial']))
 
     return conn
   
