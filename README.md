@@ -5,6 +5,7 @@ Not affiliated with [Obsidian.md](https://obsidian.md/).
 ![Supported Obsidian version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FCzBiX%2Fob-sync-server%2Fmaster%2Fob-plugin%2Fapi-server%2Fmanifest.json&query=minAppVersion&logo=obsidian&label=Obsidian&color=rebeccapurple)
 
 ## What works
+- [x] support mobile
 - [x] user create, login
 - [x] vault list, create, delete
 - [x] vault share
@@ -28,10 +29,8 @@ Not affiliated with [Obsidian.md](https://obsidian.md/).
    ```
 2. Create database and user
    ```bash
-   docker exec -it ob-sync-server \
-     python3 -m src.cli create-database
-   docker exec -it ob-sync-server \
-     python3 -m src.cli create-user {name} {email} {password}
+   docker exec -it ob-sync-server ./cli.py create-database
+   docker exec -it ob-sync-server ./cli.py create-user {name} {email} {password}
    ```
 
 3. Install api-server plugin

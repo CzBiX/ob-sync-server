@@ -8,6 +8,7 @@ RUN pip install -r requirements.txt
 VOLUME [ "/app/data" ]
 EXPOSE 8000
 
+COPY ./cli.py .
 COPY ./src src
 
 CMD [ "uvicorn", "--host", "0.0.0.0", "--port", "8000", "src.web:app" ]

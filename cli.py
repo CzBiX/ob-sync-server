@@ -1,11 +1,12 @@
+#!/usr/bin/env python3
+
 import argparse
 
 from sqlmodel import Session
 
-from .utils import generate_secret, hash_password
-
-from . import model
-from .depends import engine
+from src import model
+from src.depends import engine
+from src.utils import generate_secret, hash_password
 
 parser = argparse.ArgumentParser()
 sub_parser = parser.add_subparsers(dest='command')
