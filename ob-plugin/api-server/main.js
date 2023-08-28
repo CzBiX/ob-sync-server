@@ -17,10 +17,8 @@ class SettingsTab extends PluginSettingTab {
 
     url = new URL(url)
 
-    if (url.protocol !== 'https:') {
-      if (url.protocol !== 'http:' && url.hostname !== 'localhost' && url.hostname !== '127.0.0.1') {
-        throw 'URL must be HTTPS'
-      }
+    if (!url.protocol.startsWith('http')) {
+      throw 'URL must be HTTP/HTTPS'
     }
 
     if (!url.pathname.endsWith('/')) {
@@ -37,9 +35,9 @@ class SettingsTab extends PluginSettingTab {
 
     const s = new Setting(containerEl)
       .setName('New URL')
-      .setDesc('Must be HTTPS, unless it\'s localhost')
+      .setDesc('The new URL to use for API requests.')
       .addText(text => text
-        .setPlaceholder('https://example.com/')
+        .setPlaceholder('http://example.com/')
         .setValue(this.plugin.settings.newUrl)
         .onChange(async (value) => {
           let url = null;
@@ -61,8 +59,20 @@ class SettingsTab extends PluginSettingTab {
 }
 
 module.exports = class ApiServerPlugin extends Plugin {
-  origAjax = window.ajax
   settings = {}
+
+  constructor(app, manifest) {
+    super(app, manifest)
+
+    this.origAjax = window.ajax
+
+    const syncInstance = this.getInternalPluginInstance('sync')
+    this.origGetHost = syncInstance.getHost.bind(syncInstance)
+  }
+
+  getInternalPluginInstance(id) {
+    return this.app.internalPlugins.getPluginById(id).instance
+  }
 
   async onload() {
     await this.loadSettings()
@@ -70,16 +80,27 @@ module.exports = class ApiServerPlugin extends Plugin {
     this.addSettingTab(new SettingsTab(this.app, this))
 
     window.ajax = arg => {
-      if (arg.url.startsWith(ORIGIN_URL) && this.settings.newUrl) {
+      if (this.settings.newUrl && arg.url.startsWith(ORIGIN_URL)) {
         arg.url = arg.url.replace(ORIGIN_URL, this.settings.newUrl)
       }
 
       return this.origAjax(arg)
     }
+
+    this.getInternalPluginInstance('sync').getHost = () => {
+      let url = this.origGetHost()
+
+      if (this.settings.newUrl && this.settings.newUrl.startsWith('http:')) {
+        url = url.replace('wss:', 'ws:')
+      }
+
+      return url
+    }
   }
 
   onunload() {
     window.ajax = this.origAjax
+    delete this.getInternalPluginInstance('sync').getHost
   }
 
   async loadSettings() {
