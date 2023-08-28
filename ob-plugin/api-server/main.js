@@ -34,8 +34,10 @@ class SettingsTab extends PluginSettingTab {
     containerEl.empty()
 
     const s = new Setting(containerEl)
-      .setName('New URL')
-      .setDesc('The new URL to use for API requests.')
+      .setName('Server URL')
+      .setDesc(createSpan({
+        text: 'The new URL to use for API requests. HTTPS is recommended.',
+      }))
       .addText(text => text
         .setPlaceholder('http://example.com/')
         .setValue(this.plugin.settings.newUrl)
