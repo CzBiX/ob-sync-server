@@ -1,0 +1,32 @@
+name: Release Obsidian plugin
+
+on:
+  push:
+    tags:
+      - "plugin-*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Package plugin
+        run: |
+          cd ob-plugin
+          zip -r ../api-server-plugin.zip api-server
+
+      - name: Create release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+          version="${tag#plugin-}"
+
+          gh release create "$tag" \
+            --title="Plugin $version" \
+            api-server-plugin.zip
