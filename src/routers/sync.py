@@ -9,7 +9,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from fastapi.responses import PlainTextResponse
 from sqlmodel import Session, col, func, not_, select
 
-from .. import model, storage
+from .. import dao, model, storage
 from ..config import settings
 from ..dao import check_vault_access
 from ..depends import DbSession, engine, get_user_token
@@ -103,10 +103,7 @@ class UserVaultState:
     self.vault = self._get_vault()
   
   def _get_vault(self):
-    vault = self.db.exec(select(model.Vault).where(
-      model.Vault.id == self.vault_id,
-      not_(model.Vault.deleted),
-    )).one_or_none()
+    vault = dao.get_vault(self.db, self.vault_id)
 
     if not vault:
       raise Exception('Vault not found')

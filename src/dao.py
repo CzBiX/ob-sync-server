@@ -1,18 +1,21 @@
+from typing import Optional
 from sqlmodel import Session, select, not_, or_
 
 from . import model
 
-
-def get_vault(
+def _get_vault_query(
   db: Session,
   vault_uid: int,
-  user_id: int,
-  include_shared: bool = False,
+  user_id: Optional[int],
+  include_shared: bool,
 ):
   query = select(model.Vault).where(
     model.Vault.id == vault_uid,
     not_(model.Vault.deleted),
   )
+
+  if user_id is None:
+    return query
 
   if include_shared:
     query = query.join(
@@ -29,6 +32,16 @@ def get_vault(
       model.Vault.owner_id == user_id,
     )
 
+  return query
+
+def get_vault(
+  db: Session,
+  vault_uid: int,
+  user_id: Optional[int] = None,
+  include_shared: bool = False,
+):
+  query = _get_vault_query(db, vault_uid, user_id, include_shared)
+
   vault = db.exec(query).one_or_none()
 
   return vault
@@ -36,9 +49,11 @@ def get_vault(
 def check_vault_access(
   db: Session,
   vault_uid: int,
-  user_id: int,
+  user_id: Optional[int] = None,
   include_shared: bool = False,
-):
-  vault = get_vault(db, vault_uid, user_id, include_shared)
+) -> bool:
+  query = _get_vault_query(db, vault_uid, user_id, include_shared)
 
-  return bool(vault)
+  exists = db.exec(select(query.exists())).one()
+
+  return exists
