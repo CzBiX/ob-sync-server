@@ -73,10 +73,10 @@ class Vault:
     
   @staticmethod
   def get_hash_count(db: Session, vault_id: int, hash: str):
-    count = len(db.exec(select(model.DocumentRecord).where(
+    count = db.exec(select(func.count(model.DocumentRecord.id)).where(
       model.DocumentRecord.vault_id == vault_id,
       model.DocumentRecord.hash == hash,
-    )))
+    )).one()
 
     return count
 
