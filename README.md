@@ -38,9 +38,9 @@ Not affiliated with [Obsidian.md](https://obsidian.md/).
 
 3. Install *api-server* plugin
 
-    Download the plugin from [release](https://github.com/CzBiX/ob-sync-server/releases/latest), extract and put it into your vault's `.obsidian/plugins` folder.
-    Enable the plugin and set the server URL to your server, such as `http://localhost:8000/`.
-    Also do the same on your other devices if needed.
+   Download the plugin from [release](https://github.com/CzBiX/ob-sync-server/releases/latest), extract and put it into your vault's `.obsidian/plugins` folder.
+   Enable the plugin and set the server URL to your server, such as `http://localhost:8000/`.
+   Also do the same on your other devices if needed.
 
 4. Follow the [official guide](https://help.obsidian.md/Obsidian+Sync/Set+up+Obsidian+Sync#Log+in+with+your+Obsidian+account) to set up sync on your devices.
 
