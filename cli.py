@@ -5,6 +5,7 @@ import argparse
 from sqlmodel import Session
 
 from src import model
+from src.config import settings
 from src.depends import engine
 from src.utils import generate_secret, hash_password
 
@@ -17,6 +18,8 @@ create_user_parser = sub_parser.add_parser('create-user')
 create_user_parser.add_argument('name', type=str)
 create_user_parser.add_argument('email', type=str)
 create_user_parser.add_argument('password', type=str)
+
+sub_parser.add_parser('purge')
 
 args = parser.parse_args()
 
@@ -35,6 +38,10 @@ def create_user(name: str, email: str, password: str):
   
   print(f'User created, uid: {user.id}.')
 
+def purge():
+  from src.purger import Purger
+  Purger(config=settings.purge).purge()
+
 def main():
   match args.command:
     # used for development
@@ -42,6 +49,8 @@ def main():
       create_database()
     case 'create-user':
       create_user(args.name, args.email, args.password)
+    case 'purge':
+      purge()
     case _:
       parser.print_help()
 

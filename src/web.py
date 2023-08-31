@@ -1,13 +1,30 @@
 import logging
+from contextlib import asynccontextmanager
+from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 
-from .routers import sync, subscription, user, vault
+from .config import settings
+from .purger import Purger
+from .routers import subscription, sync, user, vault
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI()
+@asynccontextmanager
+async def app_context(app: FastAPI):
+  purger: Optional[Purger] = None
+
+  if settings.purge.enabled:
+    purger = Purger(config=settings.purge)
+    await purger.start()
+
+  yield
+
+  if purger:
+    await purger.stop()
+
+app = FastAPI(lifespan=app_context)
 
 OBSIDIAN_APP_URLS = (
   'app://obsidian.md',

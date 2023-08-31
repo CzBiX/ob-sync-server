@@ -72,4 +72,5 @@ def get_engine(db_url: str, echo: bool = False):
 def create_db_and_tables(engine):
   SQLModel.metadata.create_all(engine)
 
-DB_URL = 'sqlite:///data/data.db'
+DB_PATH = 'data/data.db'
+DB_URL = 'sqlite:///' + DB_PATH
