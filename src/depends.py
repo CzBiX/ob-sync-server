@@ -1,13 +1,18 @@
 from typing import Annotated
 
 from fastapi import Body, Depends, HTTPException
+from sqlalchemy import event
 from sqlmodel import Session, select
 
-from .model import get_engine, DB_URL, User, UserToken
 from .config import settings
-
+from .model import DB_URL, User, UserToken, get_engine
 
 engine = get_engine(DB_URL, settings.echo)
+
+@event.listens_for(engine, 'connect')
+def conn_wal_mode(conn, _):
+  conn.execute('PRAGMA journal_mode=WAL')
+  conn.execute('PRAGMA synchronous=NORMAL')
 
 def db_session():
   with Session(engine) as session:
