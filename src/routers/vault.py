@@ -97,6 +97,25 @@ def delete_vault(db: DbSession, req: DeleteVaultRequest):
 
   return {}
 
+class RenameVaultRequest(BaseModel):
+  vault_uid: int
+  name: str
+  token: str
+
+@router.post('/rename')
+def rename_vault(db: DbSession, req: RenameVaultRequest):
+  user_token = get_user_token(req.token, db)
+
+  vault = dao.Vault.get(db, req.vault_uid, user_token.user_id)
+  
+  if vault:
+    vault.name = req.name
+
+    db.add(vault)
+    db.commit()
+
+  return {}
+
 class AccessVaultRequest(BaseModel):
   token: str
   vault_uid: int
