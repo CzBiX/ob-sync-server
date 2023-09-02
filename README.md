@@ -7,6 +7,11 @@ Not affiliated with [Obsidian.md](https://obsidian.md/).
 [![Server release](https://img.shields.io/github/v/tag/czbix/ob-sync-server?filter=v*&label=server)](https://github.com/CzBiX/ob-sync-server/pkgs/container/ob-sync-server)
 
 
+> [!WARNING]
+> Due to the official protection added to the new version, you must use the old version 1.3.7 to use this project successfully.
+> You can download it from [here](https://github.com/obsidianmd/obsidian-releases/releases/tag/v1.3.7).
+
+
 ## What works
 - [x] support mobile devices
 - [x] user create, login
