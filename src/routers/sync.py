@@ -39,8 +39,8 @@ async def websocket(ws: WebSocket, db: DbSession):
   except Exception as e:
     logger.warn('websocket error', exc_info=True)
     await ws.send_json({
-      'error': 'internal error',
-      'message': str(e),
+      'err': 'internal error',
+      'msg': str(e),
     })
   finally:
     if conn:
@@ -206,7 +206,7 @@ class UserSyncConn:
     }
     
     if error:
-      msg['error'] = error
+      msg['err'] = error
     
     await self.send(msg)
 
