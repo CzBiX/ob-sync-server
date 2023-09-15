@@ -103,7 +103,7 @@ class DocumentRecord:
       ).having(
         model.DocumentRecord.deleted,
       ).order_by(
-        col(model.DocumentRecord.id).desc()
+        col(model.DocumentRecord.id).asc()
       )
     )
 
