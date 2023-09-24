@@ -42,6 +42,7 @@ class DocumentRecord(SQLModel, table=True):
   id: Optional[int] = Field(default=None, primary_key=True)
   vault_id: int = Field(index=True, foreign_key='vault.id')
   path: str = Field(index=True)
+  relatedpath: str = Field(default='')
   hash: str = Field(index=True)
   folder: bool
   deleted: bool = Field(default=False)

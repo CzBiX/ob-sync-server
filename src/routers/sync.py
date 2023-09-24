@@ -85,6 +85,7 @@ def record_to_history(record: model.DocumentRecord):
   return {
     'uid': record.id,
     'path': record.path,
+    'relatedpath': record.relatedpath,
     'folder': record.folder,
     'device': record.device,
     'size': record.size,
@@ -253,6 +254,7 @@ class UserSyncConn:
     record = model.DocumentRecord(
       vault_id=self.vault.vault_id,
       path=msg['path'],
+      relatedpath=msg.get('relatedpath') or '',
       hash=msg['hash'],
       folder=msg['folder'],
       deleted=msg['deleted'],

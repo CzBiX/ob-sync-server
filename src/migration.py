@@ -20,9 +20,15 @@ def _create_database(op: Operations):
 
   return LATEST_VERSION
 
+def _from_1(op: Operations):
+  op.add_column('documentrecord', sa.Column(
+    'relatedpath', sa.String(), nullable=False, index=True, default=''
+  ))
+
 
 _ACTIONS: list[Callable[[Operations], Optional[int]]] = [
   _create_database,
+  _from_1,
 ]
 
 LATEST_VERSION = len(_ACTIONS)
