@@ -43,7 +43,7 @@ def run_migrations(conn):
   while version < LATEST_VERSION:
     logger.info(f'Running migration {version}')
 
-    with context.begin_transaction(_per_migration=True):
+    with context.begin_transaction():
       action = _ACTIONS[version]
       version = action(op) or (version + 1)
 
@@ -52,4 +52,6 @@ def run_migrations(conn):
           version_num=str(version)
         )
       )
+  
+  context.connection.rollback()
   

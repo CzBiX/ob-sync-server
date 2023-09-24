@@ -2,7 +2,7 @@
 
 import logging
 
-logging.basicConfig(level=logging.DEBUG)
+logging.root.setLevel(logging.DEBUG)
 
 def main():
   from uvicorn import run
