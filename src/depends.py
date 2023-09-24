@@ -14,6 +14,12 @@ def conn_wal_mode(conn, _):
   conn.execute('PRAGMA journal_mode=WAL')
   conn.execute('PRAGMA synchronous=NORMAL')
 
+@event.listens_for(engine, 'engine_connect')
+def db_migrations(conn, _):
+  from .migration import run_migrations
+
+  run_migrations(conn)
+
 def db_session():
   with Session(engine) as session:
     yield session
