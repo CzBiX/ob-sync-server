@@ -35,9 +35,8 @@ Not affiliated with [Obsidian.md](https://obsidian.md/).
      --name ob-sync-server \
      ghcr.io/czbix/ob-sync-server
    ```
-2. Create database and user
+2. Create user
    ```bash
-   docker exec -it ob-sync-server ./cli.py create-database
    docker exec -it ob-sync-server ./cli.py create-user {name} {email} {password}
    ```
 

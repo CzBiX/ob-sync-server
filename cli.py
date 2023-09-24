@@ -11,17 +11,12 @@ from src.utils import generate_secret, hash_password
 parser = argparse.ArgumentParser()
 sub_parser = parser.add_subparsers(dest='command')
 
-create_database_parser = sub_parser.add_parser('create-database')
-
 create_user_parser = sub_parser.add_parser('create-user')
 create_user_parser.add_argument('name', type=str)
 create_user_parser.add_argument('email', type=str)
 create_user_parser.add_argument('password', type=str)
 
 args = parser.parse_args()
-
-def create_database():
-  model.create_db_and_tables(engine)
 
 def create_user(name: str, email: str, password: str):
   with Session(engine) as db:
@@ -37,8 +32,6 @@ def create_user(name: str, email: str, password: str):
 
 def main():
   match args.command:
-    case 'create-database':
-      create_database()
     case 'create-user':
       create_user(args.name, args.email, args.password)
     case _:
