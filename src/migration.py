@@ -40,6 +40,8 @@ def run_migrations(conn):
   version = context.get_current_revision()
   version = int(version) if version else 0
 
+  logger.info(f'Current database version: {version}')
+
   while version < LATEST_VERSION:
     logger.info(f'Running migration {version}')
 
@@ -52,6 +54,3 @@ def run_migrations(conn):
           version_num=str(version)
         )
       )
-  
-  context.connection.rollback()
-  
