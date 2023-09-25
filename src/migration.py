@@ -7,22 +7,29 @@ import sqlalchemy as sa
 logger = logging.getLogger(__name__)
 
 def _create_database(op: Operations):
-  from .model import create_db_and_tables
+  conn = op.get_bind()
+  inspector = sa.inspect(conn)
 
-  create_db_and_tables(op.get_bind())
+  # database is created before adding the version feature
+  has_table = inspector.has_table('user')
+  if not has_table:
+    from .model import create_db_and_tables
+
+    create_db_and_tables(conn)
 
   context = op.get_context()
   context._ensure_version_table()
   
+  version = 1 if has_table else LATEST_VERSION
   context.execute(
-    context._version.insert().values(str(LATEST_VERSION))
+    context._version.insert().values(str(version))
   )
 
-  return LATEST_VERSION
+  return version
 
 def _from_1(op: Operations):
   op.add_column('documentrecord', sa.Column(
-    'relatedpath', sa.String(), nullable=False, index=True, default=''
+    'relatedpath', sa.String(), nullable=False, index=True, server_default=''
   ))
 
 
@@ -43,7 +50,7 @@ def run_migrations(conn):
   logger.info(f'Current database version: {version}')
 
   while version < LATEST_VERSION:
-    logger.info(f'Running migration {version}')
+    logger.info(f'Running migration from {version}')
 
     with context.begin_transaction():
       action = _ACTIONS[version]
@@ -54,3 +61,4 @@ def run_migrations(conn):
           version_num=str(version)
         )
       )
+
