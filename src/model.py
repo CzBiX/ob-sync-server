@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlmodel import Field, Relationship, SQLModel, create_engine
+from sqlmodel import Field, Relationship, SQLModel, UniqueConstraint, create_engine
 
 
 class User(SQLModel, table=True):
@@ -53,6 +53,16 @@ class DocumentRecord(SQLModel, table=True):
   created_at: datetime = Field(default_factory=datetime.now)
 
   vault: Vault = Relationship()
+
+class PendingFile(SQLModel, table=True):
+  id: Optional[int] = Field(default=None, primary_key=True)
+  vault_id: int = Field(foreign_key='vault.id')
+  hash: str
+  created_at: datetime = Field(default_factory=datetime.now)
+
+  __table_args__ = (
+    UniqueConstraint('vault_id', 'hash'),
+  )
 
 def get_engine(db_url: str, echo: bool = False):
   return create_engine(db_url, echo=echo, connect_args={

@@ -32,10 +32,20 @@ def _from_1(op: Operations):
     'relatedpath', sa.String(), nullable=False, index=True, server_default=''
   ))
 
+def _from_2(op: Operations):
+  op.create_table('pendingfile',
+    sa.Column('id', sa.Integer(), primary_key=True),
+    sa.Column('vault_id', sa.Integer(), sa.ForeignKey('vault.id'), nullable=False),
+    sa.Column('hash', sa.String(), nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.UniqueConstraint('vault_id', 'hash'),
+  )
+
 
 _ACTIONS: list[Callable[[Operations], Optional[int]]] = [
   _create_database,
   _from_1,
+  _from_2,
 ]
 
 LATEST_VERSION = len(_ACTIONS)

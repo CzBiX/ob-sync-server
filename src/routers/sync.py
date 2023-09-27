@@ -215,8 +215,14 @@ class UserSyncConn:
   async def on_push(self, msg: dict):
     if not msg['folder'] and not msg['deleted']:
       pieces = msg['pieces']
+      hash = msg['hash']
       if pieces and not self._hash_exists(msg['hash']):
-        await self._save_file(msg['hash'], pieces)
+        pending = dao.PendingFile.get_or_create(
+          self.db, vault_id=self.vault_id, hash=msg['hash'],
+        )
+
+        await self._save_file(hash, pieces)
+        self.db.delete(pending)
 
     record = model.DocumentRecord(
       vault_id=self.vault_id,

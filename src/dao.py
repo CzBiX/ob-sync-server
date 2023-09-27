@@ -166,3 +166,22 @@ class DocumentRecord:
     )
     
     return max_id, map(lambda r: r[0], db.exec(query))
+  
+class PendingFile:
+  @staticmethod
+  def get_or_create(db: Session, vault_id: int, hash: str):
+    record = db.exec(select(model.PendingFile).where(
+      model.PendingFile.vault_id == vault_id,
+      model.PendingFile.hash == hash,
+    )).one_or_none()
+
+    if not record:
+      record = model.PendingFile(
+        vault_id=vault_id,
+        hash=hash,
+      )
+
+      db.add(record)
+      db.commit()
+
+    return record
