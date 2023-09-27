@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 
-import logging
 from sqlalchemy import log as sqlalchemy_log
 
-logging.basicConfig(level=logging.DEBUG)
 sqlalchemy_log._add_default_handler = lambda x: None  # Patch to avoid duplicate logging
 
 def main():

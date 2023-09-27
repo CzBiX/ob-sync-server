@@ -9,6 +9,8 @@ from .config import settings
 from .purger import Purger
 from .routers import subscription, sync, user, vault
 
+logging.basicConfig(level=logging.DEBUG if settings.debug else logging.INFO)
+
 logger = logging.getLogger(__name__)
 
 @asynccontextmanager
