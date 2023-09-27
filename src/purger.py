@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import logging
+import os
 import shutil
 from typing import Optional
 
@@ -10,6 +11,7 @@ from . import model
 from .config import PurgeSettings
 from .depends import engine
 from .storage import get_vault_dir
+from src import storage
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +56,28 @@ class Purger:
     with Session(engine) as db:
       db.execute('BEGIN IMMEDIATE')
       self._purge_deleted_vaults(db)
+      self._purge_pending_files(db)
     
       db.execute('VACUUM')
+  
+  def _purge_pending_files(self, db: Session):
+    time_delta = datetime.timedelta(days=self.config.pending_age)
+    created_before = datetime.datetime.now() - time_delta
+    pending_files = db.exec(select(model.PendingFile)
+      .where(
+        model.PendingFile.created_at <= created_before,
+      )
+    )
+
+    for pending_file in pending_files:
+      path = storage.get_file_path(pending_file.vault_id, pending_file.hash)
+      if os.path.exists(path):
+        os.remove(path)
+      
+      db.delete(pending_file)
+    
+    logger.info('Purged %d pending files', len(db.deleted))
+    db.commit()
   
   def _purge_deleted_vaults(self, db: Session):
     vaults = db.exec(select(model.Vault).where(model.Vault.deleted))
@@ -65,13 +87,17 @@ class Purger:
   def _purge_deleted_vault(self, db: Session, vault: model.Vault):
     logger.debug('Purging deleted vault, id: %d, name: %s', vault.id, vault.name)
 
+    db.query(model.PendingFile).filter(
+      model.PendingFile.vault_id == vault.id
+    ).delete()
+
     db.query(model.VaultShare).filter(
       model.VaultShare.vault_id == vault.id
     ).delete()
-    db.commit()
 
     logger.debug('Vault shares deleted')
 
+    assert vault.id is not None
     dir_path = get_vault_dir(vault.id)
     shutil.rmtree(dir_path)
 
@@ -80,12 +106,10 @@ class Purger:
     db.query(model.DocumentRecord).filter(
       model.DocumentRecord.vault_id == vault.id
     ).delete()
-    db.commit()
 
     logger.debug('Document records deleted')
 
     db.delete(vault)
-    db.commit()
+    logger.info('Purged vault, id: %d, name: %s', vault.id, vault.name)
 
-    logger.debug('Vault deleted')
-    
+    db.commit()

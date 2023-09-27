@@ -12,6 +12,7 @@ class PurgeSettings(BaseModel):
 
   # in days
   vault_age: int = 30
+  pending_age: int = 7
   # in days
   file_ages: dict[str, int] = DEFAULT_FILE_AGES
 
