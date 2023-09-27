@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 from typing import Iterator, Optional
 from sqlmodel import Session, col, func, select, not_, or_
 

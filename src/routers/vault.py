@@ -61,8 +61,9 @@ def create_vault(db: DbSession, req: CreateVaultRequest):
 
   if not req.keyhash:
     password = generate_secret()
-    req.salt = generate_secret()
-    req.keyhash = get_keyhash(password, req.salt)
+    salt = generate_secret()
+    req.salt = salt
+    req.keyhash = get_keyhash(password, salt)
   else:
     password = ''
 

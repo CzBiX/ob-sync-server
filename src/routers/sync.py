@@ -1,9 +1,11 @@
 import asyncio
-from dataclasses import dataclass
 import json
 import logging
 import math
 import secrets
+from contextlib import closing
+from dataclasses import dataclass
+from typing import Optional
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from fastapi.responses import PlainTextResponse
@@ -11,7 +13,7 @@ from sqlmodel import Session
 
 from .. import dao, model, storage
 from ..config import settings
-from ..depends import DbSession, engine, get_user_token
+from ..depends import DbSession, get_user_token
 from ..utils import datetime_to_ts
 
 logger = logging.getLogger(__name__)
@@ -94,70 +96,43 @@ def record_to_history(record: model.DocumentRecord):
   }
 
 class UserVaultChannel:
-  def __init__(self, vault_id: str):
+  def __init__(self, db: Session, vault_id: int):
     self.vault_id = vault_id
 
     self.conns: list['UserSyncConn'] = []
-    self.db = Session(engine)
 
-    self.vault = self._get_vault()
+    self.vault = self._get_vault(db, vault_id)
   
-  def _get_vault(self):
-    vault = dao.Vault.get(self.db, self.vault_id)
+  @staticmethod
+  def _get_vault(db: Session, vault_id: int):
+    vault = dao.Vault.get(db, vault_id)
 
     if not vault:
       raise Exception('Vault not found')
 
     return vault
   
-  def get_size(self):
-    return dao.Vault.get_size(self.db, self.vault_id)
-  
-  def hash_exists(self, hash: str):
-    return dao.Vault.get_hash_count(self.db, self.vault_id, hash) > 0
-  
-  def get_record(self, uid: int):
-    record = dao.DocumentRecord.get(self.db, self.vault_id, uid)
-
-    if not record:
-      raise Exception('Record not found')
-
-    return record
-  
-  def get_deleted(self):
-    return dao.DocumentRecord.get_deleted(self.db, self.vault_id)
-  
-  def get_history(self, path: str, last: int):
-    return dao.DocumentRecord.get_history(self.db, self.vault_id, path, last)
-  
-  def get_updates(self, last: int, initial: bool):
-    return dao.DocumentRecord.get_updates(self.db, self.vault_id, last, initial)
-  
-  async def restore(self, uid: int, device: str):
-    old_record = self.get_record(uid)
-
-    new_record = model.DocumentRecord(**old_record.dict(
-      exclude={'id', 'deleted', 'device', 'created_at'}
-    ), device=device)
-
-    await self.push(new_record)
-
-    return new_record
-  
-  def join(conn: 'UserSyncConn', user_id: int, vault_id: int, keyhash: str):
-    vault_state = vault_channels.get(vault_id) 
+  @staticmethod
+  def join(
+    conn: 'UserSyncConn',
+    user_id: int,
+    vault_id: str,
+    keyhash: str,
+  ):
+    _vault_id: int = int(vault_id)
+    vault_state = vault_channels.get(_vault_id) 
     if not vault_state:
-      vault_state = UserVaultChannel(vault_id)
-      vault_channels[vault_id] = vault_state
+      vault_state = UserVaultChannel(conn.db, _vault_id)
+      vault_channels[_vault_id] = vault_state
     
     vault = vault_state.vault
-    if not dao.Vault.check_access(vault_state.db, vault_id, user_id, True):
+    if not dao.Vault.check_access(conn.db, _vault_id, user_id, True):
       raise Exception('Auth failed')
 
     if not secrets.compare_digest(vault.key_hash, keyhash):
       raise Exception('Invalid password')
     
-    logger.debug('vault join, vault_id: %d, device: %s', vault_id, conn.device)
+    logger.debug('vault join, vault_id: %d, device: %s', _vault_id, conn.device)
     vault_state.conns.append(conn)
 
     return vault_state
@@ -168,12 +143,8 @@ class UserVaultChannel:
 
     if len(self.conns) == 0:
       del vault_channels[self.vault_id]
-      self.db.close()
   
   async def push(self, record: model.DocumentRecord):
-    self.db.add(record)
-    self.db.commit()
-
     msg = record_to_msg(record)
     msg['op'] = 'push'
 
@@ -184,10 +155,15 @@ vault_channels: dict[int, UserVaultChannel] = {}
 
 @dataclass
 class UserSyncConn:
+  db: Session
   ws: WebSocket
   device: str
-  vault: UserVaultChannel | None = None
-  task: asyncio.Task | None = None
+  vault: Optional[UserVaultChannel] = None
+  task: Optional[asyncio.Task] = None
+
+  @property
+  def vault_id(self):
+    return self.vault.vault_id
   
   def disconnect(self):
     if self.task:
@@ -216,14 +192,15 @@ class UserSyncConn:
       msg = await self.ws.receive_json() 
       await self.handle(msg)
   
-  async def auth(ws: WebSocket, db: DbSession):
+  @staticmethod
+  async def auth(ws: WebSocket, db: Session):
     msg = await ws.receive_json()
     assert msg['op'] == 'init'
 
     device = msg['device']
     user_token = get_user_token(msg['token'], db)
 
-    conn = UserSyncConn(ws, device)
+    conn = UserSyncConn(db, ws, device)
     vault = UserVaultChannel.join(
       conn, user_token.user_id, msg['id'], msg['keyhash']
     )
@@ -238,21 +215,11 @@ class UserSyncConn:
   async def on_push(self, msg: dict):
     if not msg['folder'] and not msg['deleted']:
       pieces = msg['pieces']
-      if pieces and not self.vault.hash_exists(msg['hash']):
-        f = storage.get_file_object(self.vault.vault_id, msg['hash'], False)
-        try:
-          for _ in range(pieces):
-            await self.send({
-              # HACK: anything other than 'ok'
-              'res': 'missing-blobs'
-            })
-            chunk = await self.receive_binary()
-            f.write(chunk)
-        finally:
-          f.close()
+      if pieces and not self._hash_exists(msg['hash']):
+        await self._save_file(msg['hash'], pieces)
 
     record = model.DocumentRecord(
-      vault_id=self.vault.vault_id,
+      vault_id=self.vault_id,
       path=msg['path'],
       relatedpath=msg.get('relatedpath') or '',
       hash=msg['hash'],
@@ -264,12 +231,28 @@ class UserSyncConn:
       mtime=msg['mtime'],
     )
 
-    await self.vault.push(record)
+    await self._push(record)
     await self.result()
+  
+  async def _send_file(self, hash: str, pieces: int):
+    with closing(storage.get_file_object(self.vault_id, hash)) as f:
+      for _ in range(pieces):
+        chunk = f.read(CHUNK_SIZE)
+        await self.ws.send_bytes(chunk)
+  
+  async def _save_file(self, hash: str, pieces: int):
+    with closing(storage.get_file_object(self.vault_id, hash, False)) as f:
+      for _ in range(pieces):
+        await self.send({
+          # HACK: anything other than 'ok'
+          'res': 'missing-blobs'
+        })
+        chunk = await self.receive_binary()
+        f.write(chunk)
   
   async def on_pull(self, msg: dict):
     uid = msg['uid']
-    record = self.vault.get_record(uid)
+    record = self._get_record(uid)
     pieces = size_to_pieces(record.size)
 
     msg = {
@@ -281,16 +264,10 @@ class UserSyncConn:
     await self.send(msg)
 
     if record.size > 0:
-      f = storage.get_file_object(self.vault.vault_id, record.hash)
-      try:
-        for _ in range(pieces):
-          chunk = f.read(CHUNK_SIZE)
-          await self.ws.send_bytes(chunk)
-      finally:
-        f.close()
+      await self._send_file(record.hash, pieces)
   
   async def get_deleted(self):
-    deleted = self.vault.get_deleted()
+    deleted = dao.DocumentRecord.get_deleted(self.db, self.vault_id)
 
     items = [record_to_history(record) for record in deleted]
     
@@ -301,7 +278,7 @@ class UserSyncConn:
   async def get_history(self, msg: dict):
     path = msg['path']
     last = msg['last']
-    records = self.vault.get_history(path, last)
+    records = dao.DocumentRecord.get_history(self.db, self.vault_id, path, last)
 
     items = [record_to_history(record) for record in records]
     
@@ -313,11 +290,19 @@ class UserSyncConn:
   async def restore(self, msg: dict):
     uid = msg['uid']
 
-    await self.vault.restore(uid, self.device)
+    old_record = self._get_record(uid)
+
+    new_record = model.DocumentRecord(**old_record.dict(
+      exclude={'id', 'deleted', 'device', 'created_at'}
+    ), device=self.device)
+
+    await self._push(new_record)
     await self.result()
   
   async def send_records(self, version: int, initial: bool):
-    [lastest, records] = self.vault.get_updates(version, initial)
+    [lastest, records] = dao.DocumentRecord.get_updates(
+      self.db, self.vault_id, version, initial,
+    )
 
     for record in records:
       msg = record_to_msg(record)
@@ -343,17 +328,40 @@ class UserSyncConn:
         continue
       
       return msg['bytes']
+  
+  async def get_size(self):
+    size = dao.Vault.get_size(self.db, self.vault_id)
+
+    await self.send({
+      'size': size,
+      'limit': SYNC_SIZE_LIMIT,
+    })
+  
+  def _hash_exists(self, hash: str):
+    return dao.Vault.get_hash_count(self.db, self.vault_id, hash) > 0
+  
+  def _get_record(self, uid: int):
+    record = dao.DocumentRecord.get(self.db, self.vault_id, uid)
+
+    if not record:
+      raise Exception('Record not found')
+
+    return record
+  
+  async def _push(self, record: model.DocumentRecord):
+    self.db.add(record)
+    self.db.commit()
+
+    assert self.vault
+    await self.vault.push(record)
 
   async def handle(self, msg: dict):
     logger.debug('handle msg: %s', msg)
-    op = msg['op']
+    self.db.rollback()
 
-    match op:
+    match msg['op']:
       case 'size':
-        await self.send({
-          'size': self.vault.get_size(),
-          'limit': SYNC_SIZE_LIMIT,
-        })
+        await self.get_size()
       case 'ping':
         await self.send({
           'op': 'pong'
@@ -369,4 +377,5 @@ class UserSyncConn:
       case 'restore':
         await self.restore(msg)
       case _:
+        logger.warning('unknown op: %s', msg['op'])
         await self.result()
