@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 
-from sqlalchemy import log as sqlalchemy_log
-
-sqlalchemy_log._add_default_handler = lambda x: None  # Patch to avoid duplicate logging
-
 def main():
   from uvicorn import run
   

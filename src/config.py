@@ -27,3 +27,17 @@ class Settings(BaseSettings):
     env_nested_delimiter = '__'
 
 settings = Settings()
+
+def init():
+  import logging
+
+  logging.basicConfig(level=logging.DEBUG if settings.debug else logging.INFO)
+  
+  if settings.debug:
+    from sqlalchemy import log as sqlalchemy_log
+
+    # Patch to avoid duplicate sql echo
+    sqlalchemy_log._add_default_handler = lambda x: None  
+
+
+init()
