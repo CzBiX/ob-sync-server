@@ -56,16 +56,17 @@ class Purger:
     with Session(engine) as db:
       db.execute('BEGIN IMMEDIATE')
       self._purge_deleted_vaults(db)
-      self._purge_pending_files(db)
+      self._purge_pending_upload_files(db)
     
       db.execute('VACUUM')
   
-  def _purge_pending_files(self, db: Session):
+  def _purge_pending_upload_files(self, db: Session):
     time_delta = datetime.timedelta(days=self.config.pending_age)
     created_before = datetime.datetime.now() - time_delta
     pending_files = db.exec(select(model.PendingFile)
       .where(
         model.PendingFile.created_at <= created_before,
+        model.PendingFile.type == model.PendingFileType.UPLOAD,
       )
     )
 
@@ -76,7 +77,7 @@ class Purger:
       
       db.delete(pending_file)
     
-    logger.info('Purged %d pending files', len(db.deleted))
+    logger.info('Purged %d pending upload files', len(db.deleted))
     db.commit()
   
   def _purge_deleted_vaults(self, db: Session):

@@ -218,7 +218,8 @@ class UserSyncConn:
       hash = msg['hash']
       if pieces and not self._hash_exists(msg['hash']):
         pending = dao.PendingFile.get_or_create(
-          self.db, vault_id=self.vault_id, hash=msg['hash'],
+          self.db,
+          vault_id=self.vault_id, hash=msg['hash'], type=model.PendingFileType.UPLOAD,
         )
 
         await self._save_file(hash, pieces)

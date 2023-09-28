@@ -169,16 +169,18 @@ class DocumentRecord:
   
 class PendingFile:
   @staticmethod
-  def get_or_create(db: Session, vault_id: int, hash: str):
+  def get_or_create(db: Session, vault_id: int, hash: str, type: model.PendingFileType):
     record = db.exec(select(model.PendingFile).where(
       model.PendingFile.vault_id == vault_id,
       model.PendingFile.hash == hash,
+      model.PendingFile.type == type,
     )).one_or_none()
 
     if not record:
       record = model.PendingFile(
         vault_id=vault_id,
         hash=hash,
+        type=type,
       )
 
       db.add(record)

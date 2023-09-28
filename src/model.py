@@ -1,3 +1,4 @@
+import enum
 from datetime import datetime
 from typing import Optional
 
@@ -54,10 +55,15 @@ class DocumentRecord(SQLModel, table=True):
 
   vault: Vault = Relationship()
 
+class PendingFileType(enum.IntEnum):
+  UPLOAD = enum.auto()
+  DELETE = enum.auto()
+
 class PendingFile(SQLModel, table=True):
   id: Optional[int] = Field(default=None, primary_key=True)
   vault_id: int = Field(foreign_key='vault.id')
   hash: str
+  type: PendingFileType
   created_at: datetime = Field(default_factory=datetime.now)
 
   __table_args__ = (

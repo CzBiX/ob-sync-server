@@ -33,10 +33,14 @@ def _from_1(op: Operations):
   ))
 
 def _from_2(op: Operations):
+  from .model import PendingFileType
+
   op.create_table('pendingfile',
     sa.Column('id', sa.Integer(), primary_key=True),
     sa.Column('vault_id', sa.Integer(), sa.ForeignKey('vault.id'), nullable=False),
     sa.Column('hash', sa.String(), nullable=False),
+    sa.Column('type', sa.Integer(), nullable=False,
+      server_default=str(PendingFileType.UPLOAD.value)),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.UniqueConstraint('vault_id', 'hash'),
   )
